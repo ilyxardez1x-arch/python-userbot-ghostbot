@@ -1,0 +1,7 @@
+telethon
+openai
+aiohttp
+google-generativeai
+groq
+cerebras-cloud-sdk
+cryptg
