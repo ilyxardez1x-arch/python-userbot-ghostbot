@@ -1,7 +1,7 @@
 telethon
 openai
 aiohttp
-google-generativeai
+google-genai
 groq
 cerebras-cloud-sdk
 cryptg
