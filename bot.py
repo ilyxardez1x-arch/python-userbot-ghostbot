@@ -19,8 +19,6 @@ from cerebras.cloud.sdk import Cerebras
 # ============================================
 # ТВОИ ДАННЫЕ (ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ)
 # ============================================
-import os
-
 API_ID = int(os.environ.get('API_ID', 0))
 API_HASH = os.environ.get('API_HASH', '')
 
@@ -51,7 +49,14 @@ if AZURE_OPENAI_KEY and AZURE_OPENAI_ENDPOINT:
     )
 
 # ============================================
-# ЗАГРУЗКА СТИКЕРОВ
+# ФАЙЛЫ (ТЕПЕРЬ ОНИ ОБЪЯВЛЕНЫ ПОСЛЕ ИМПОРТОВ)
+# ============================================
+SESSION_FILE = 'user_session'
+STICKERS_FILE = 'stickers.json'
+AI_BRAIN_FILE = 'ai_brain.json'
+
+# ============================================
+# ФУНКЦИИ ЗАГРУЗКИ (ТЕПЕРЬ ОНИ ПОСЛЕ ОБЪЯВЛЕНИЯ ФАЙЛОВ)
 # ============================================
 def load_stickers():
     try:
@@ -71,9 +76,6 @@ def save_stickers(stickers):
 
 sticker_pack = load_stickers()
 
-# ============================================
-# МОЗГ AI - ДОЛГОВРЕМЕННАЯ ПАМЯТЬ
-# ============================================
 def load_ai_brain():
     try:
         if os.path.exists(AI_BRAIN_FILE):
@@ -90,7 +92,7 @@ def save_ai_brain(brain):
     except Exception as e:
         print(f"⚠️ Не удалось сохранить мозг AI: {e}")
 
-ai_brain = load_ai_brain()
+ai_brain = load_ai_brain(
 
 # ============================================
 # ИНФОРМАЦИЯ О ТЕБЕ
