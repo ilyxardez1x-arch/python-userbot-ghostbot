@@ -78,15 +78,15 @@ AZURE_TTS_DEPLOYMENT = 'gpt-4o-mini-tts'
 
 # Gemini
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# Groq (ИСПРАВЛЕНО: старый рабочий ключ)
+# Groq
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-groq_client = Groq(api_key=GROQ_API_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-# Cerebras (ИСПРАВЛЕНО: ключ и модель будут позже)
+# Cerebras
 CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY", "")
-cerebras_client = Cerebras(api_key=CEREBRAS_API_KEY)
+cerebras_client = Cerebras(api_key=CEREBRAS_API_KEY) if CEREBRAS_API_KEY else None
 # ============================================
 
 # Инициализация Azure OpenAI
@@ -94,7 +94,7 @@ azure_client = AzureOpenAI(
     api_key=AZURE_OPENAI_KEY,
     api_version="2024-02-15-preview",
     azure_endpoint=AZURE_OPENAI_ENDPOINT
-)
+) if AZURE_OPENAI_KEY and AZURE_OPENAI_ENDPOINT else None
 
 SESSION_FILE = 'user_session'
 
