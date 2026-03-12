@@ -7,3 +7,4 @@ cerebras-cloud-sdk
 openai
 apscheduler==3.10.4
 pytz
+Pillow
