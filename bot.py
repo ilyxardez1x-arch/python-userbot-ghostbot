@@ -3375,6 +3375,8 @@ async def _run_ptb():
     login_conv = ConversationHandler(
         entry_points=[PTBCommandHandler("login", ptb_login)],
         per_message=False,
+        per_chat=True,
+        per_user=True,
         states={
             L_PHONE:    [PTBMessageHandler(filters.TEXT & ~filters.COMMAND, ptb_got_phone)],
             L_KEYBOARD: [CallbackQueryHandler(ptb_keyboard_digit, pattern="^cd_")],
@@ -3391,7 +3393,17 @@ async def _run_ptb():
 
     await _ptb_app.initialize()
     await _ptb_app.start()
-    await _ptb_app.updater.start_polling(drop_pending_updates=True)
+    # Сначала убиваем все старые сессии getUpdates чтобы не было Conflict
+    try:
+        await _ptb_app.bot.delete_webhook(drop_pending_updates=True)
+        logger.info("✅ Webhook сброшен, старые сессии убиты")
+    except Exception as e:
+        logger.warning(f"⚠️ delete_webhook: {e}")
+    await asyncio.sleep(2)  # Даём время Telegram закрыть старые соединения
+    await _ptb_app.updater.start_polling(
+        drop_pending_updates=True,
+        allowed_updates=["message", "callback_query"]
+    )
     logger.info("✅ PTB бот запущен, жди команды /login или /start")
 
 async def _try_autostart_userbot():
