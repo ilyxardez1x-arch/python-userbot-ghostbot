@@ -3394,18 +3394,14 @@ async def _run_ptb():
     await _ptb_app.initialize()
     await _ptb_app.start()
 
-    # Добавляем обработчик Conflict ошибок — просто логируем и игнорируем
+    # Обработчик Conflict — логируем и продолжаем
     from telegram.error import Conflict as TGConflict
     async def _ignore_conflict(update, context):
         if isinstance(context.error, TGConflict):
-            logger.warning("⚠️ Conflict проигнорирован (старый инстанс ещё умирает)")
+            logger.warning("⚠️ Conflict (старый инстанс ещё не умер) — игнорируем")
         else:
             logger.error(f"❌ PTB ошибка: {context.error}")
     _ptb_app.add_error_handler(_ignore_conflict)
-
-    # Ждём 15 сек пока старый инстанс Railway точно умрёт
-    logger.info("⏳ Ждём 15 сек перед стартом polling...")
-    await asyncio.sleep(15)
 
     await _ptb_app.bot.delete_webhook(drop_pending_updates=True)
     await _ptb_app.updater.start_polling(
