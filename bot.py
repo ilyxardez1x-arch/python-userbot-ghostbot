@@ -70,8 +70,8 @@ logger = logging.getLogger("GHOST_BOT")
 # ============================================
 # ТВОИ ДАННЫЕ (НЕ ТРОГАЕМ)
 # ============================================
-API_ID = int(os.environ.get("TG_API_ID", "0"))
-API_HASH = os.environ.get("TG_API_HASH", "")
+API_ID = int(os.environ.get("API_ID", "0"))
+API_HASH = os.environ.get("API_HASH", "")
 
 # Azure OpenAI для голосовых
 AZURE_OPENAI_KEY = os.environ.get("AZURE_OPENAI_KEY", "")
@@ -3118,7 +3118,7 @@ from telegram.ext import (
     CallbackQueryHandler, filters
 )
 
-OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
+OWNER_ID = int(os.environ.get("OWNER_ID", "6210516253"))
 _ptb_app = None
 _userbot_client = None
 _login_state = {}   # хранит phone_code_hash и т.д.
@@ -3370,6 +3370,9 @@ async def _finish_userbot_login(update):
 
 async def _run_ptb():
     global _ptb_app
+    if not STATUS_BOT_TOKEN:
+        logger.error("❌ STATUS_BOT_TOKEN не задан! Добавь в Railway → Variables")
+        raise ValueError("STATUS_BOT_TOKEN is empty. Set it in Railway Variables.")
     _ptb_app = Application.builder().token(STATUS_BOT_TOKEN).build()
 
     login_conv = ConversationHandler(
