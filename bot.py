@@ -3394,20 +3394,29 @@ async def _run_ptb():
     await _ptb_app.initialize()
     await _ptb_app.start()
 
-    # Обработчик Conflict — логируем и продолжаем
-    from telegram.error import Conflict as TGConflict
-    async def _ignore_conflict(update, context):
-        if isinstance(context.error, TGConflict):
-            logger.warning("⚠️ Conflict (старый инстанс ещё не умер) — игнорируем")
-        else:
-            logger.error(f"❌ PTB ошибка: {context.error}")
-    _ptb_app.add_error_handler(_ignore_conflict)
-
     await _ptb_app.bot.delete_webhook(drop_pending_updates=True)
-    await _ptb_app.updater.start_polling(
-        drop_pending_updates=True,
-        allowed_updates=["message", "callback_query"]
-    )
+
+    # Запускаем polling с авто-перезапуском при Conflict
+    async def _start_polling_loop():
+        while True:
+            try:
+                if _ptb_app.updater.running:
+                    await _ptb_app.updater.stop()
+                await _ptb_app.updater.start_polling(
+                    drop_pending_updates=True,
+                    allowed_updates=["message", "callback_query"]
+                )
+                logger.info("✅ PTB polling запущен")
+                return
+            except Exception as e:
+                if "Conflict" in str(e):
+                    logger.warning("⚠️ Conflict — старый инстанс ещё жив, ждём 5 сек...")
+                    await asyncio.sleep(5)
+                else:
+                    logger.error(f"❌ Polling ошибка: {e}")
+                    await asyncio.sleep(3)
+
+    asyncio.create_task(_start_polling_loop())
     logger.info("✅ PTB бот запущен, жди команды /login или /start")
 
 async def _try_autostart_userbot():
