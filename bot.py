@@ -3393,13 +3393,21 @@ async def _run_ptb():
 
     await _ptb_app.initialize()
     await _ptb_app.start()
-    # Сначала убиваем все старые сессии getUpdates чтобы не было Conflict
-    try:
-        await _ptb_app.bot.delete_webhook(drop_pending_updates=True)
-        logger.info("✅ Webhook сброшен, старые сессии убиты")
-    except Exception as e:
-        logger.warning(f"⚠️ delete_webhook: {e}")
-    await asyncio.sleep(2)  # Даём время Telegram закрыть старые соединения
+
+    # Добавляем обработчик Conflict ошибок — просто логируем и игнорируем
+    from telegram.error import Conflict as TGConflict
+    async def _ignore_conflict(update, context):
+        if isinstance(context.error, TGConflict):
+            logger.warning("⚠️ Conflict проигнорирован (старый инстанс ещё умирает)")
+        else:
+            logger.error(f"❌ PTB ошибка: {context.error}")
+    _ptb_app.add_error_handler(_ignore_conflict)
+
+    # Ждём 15 сек пока старый инстанс Railway точно умрёт
+    logger.info("⏳ Ждём 15 сек перед стартом polling...")
+    await asyncio.sleep(15)
+
+    await _ptb_app.bot.delete_webhook(drop_pending_updates=True)
     await _ptb_app.updater.start_polling(
         drop_pending_updates=True,
         allowed_updates=["message", "callback_query"]
