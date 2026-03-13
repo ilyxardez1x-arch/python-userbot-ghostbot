@@ -14,6 +14,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import pytz
 from telethon import TelegramClient, events, Button, types
+from telethon.tl.functions.account import UpdateProfileRequest
 from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError, FloodWaitError, RPCError
 from telethon.tl.functions.messages import GetDialogsRequest
@@ -137,6 +138,9 @@ STATUS_TEXT_OFFLINE = """── 爪ㄖ1匚卄ㄩ ──
 ▸ ᴀᴄᴛɪᴠᴇ: 07:00 — 23:00
 ▸ sᴛᴀᴛᴜs: ᴅᴇᴀᴅ"""
 
+BIO_ONLINE  = "▪ sᴛᴀᴛᴜs: ᴏɴʟɪɴᴇ"
+BIO_OFFLINE = "▪ sᴛᴀᴛᴜs: ᴅᴇᴀᴅ"
+
 _status_current   = None
 _status_last_seen = None
 _offline_task     = None
@@ -167,6 +171,14 @@ async def _update_post(status: str, force: bool = False):
                     logger.error(f"[STATUS] Ошибка: {result}")
     except Exception as e:
         logger.error(f"[STATUS] HTTP ошибка: {e}")
+    # Обновляем био профиля
+    try:
+        if _userbot_client and _userbot_client.is_connected():
+            bio = BIO_ONLINE if status == "online" else BIO_OFFLINE
+            await _userbot_client(UpdateProfileRequest(about=bio))
+            logger.info(f"[STATUS] Био → {bio}")
+    except Exception as e:
+        logger.error(f"[STATUS] Био ошибка: {e}")
 
 async def _delayed_offline():
     await asyncio.sleep(STATUS_OFFLINE_DELAY)
