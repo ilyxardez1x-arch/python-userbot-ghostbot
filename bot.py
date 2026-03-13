@@ -14,6 +14,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import pytz
 from telethon import TelegramClient, events, Button, types
+from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError, FloodWaitError, RPCError
 from telethon.tl.functions.messages import GetDialogsRequest
 from telethon.tl.types import InputPeerEmpty
@@ -97,6 +98,7 @@ azure_client = AzureOpenAI(
 ) if AZURE_OPENAI_KEY and AZURE_OPENAI_ENDPOINT else None
 
 SESSION_FILE = 'user_session'
+SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
 # ============================================
 # СТАТУС В КАНАЛЕ — ОНЛАЙН/ОФЛАЙН
@@ -3121,7 +3123,7 @@ def _owner_only(func):
 
 @_owner_only
 async def ptb_start(update: PTBUpdate, ctx: ContextTypes.DEFAULT_TYPE):
-    session_exists = os.path.exists(SESSION_FILE + ".session") or os.path.exists(SESSION_FILE)
+    session_exists = bool(SESSION_STRING) or os.path.exists(SESSION_FILE + ".session") or os.path.exists(SESSION_FILE)
     connected = _userbot_client and _userbot_client.is_connected()
     ub_status = "ᴀᴄᴛɪᴠᴇ" if connected else "ɪɴᴀᴄᴛɪᴠᴇ"
     post_status = _status_current or "unknown"
@@ -3220,7 +3222,7 @@ async def ptb_got_phone(update: PTBUpdate, ctx: ContextTypes.DEFAULT_TYPE):
     _login_state["phone"] = phone
     _login_state["code_digits"] = ""
     try:
-        _userbot_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+        _userbot_client = TelegramClient(StringSession(), API_ID, API_HASH)
         await _userbot_client.connect()
         result = await _userbot_client.send_code_request(phone)
         _login_state["phone_code_hash"] = result.phone_code_hash
@@ -3300,11 +3302,18 @@ async def _finish_userbot_login_query(query):
     _userbot_client.add_event_handler(suefa_game_handler)
     _userbot_client.add_event_handler(ai_handler)
     _userbot_client.add_event_handler(status_online_handler, events.Raw)
+
+    # Экспортируем строку сессии для Railway
+    session_str = _userbot_client.session.save()
     await query.edit_message_text(
         f"── ᴀᴜᴛʜ // sᴜᴄᴄᴇss ──\n\n"
         f"▸ ʟᴏɢɢᴇᴅ ɪɴ ᴀs: {me.first_name}\n"
         f"▸ ᴜsᴇʀʙᴏᴛ: ᴀᴄᴛɪᴠᴇ\n"
-        f"▸ ᴀᴜᴛᴏ-sᴛᴀᴛᴜs: ᴇɴᴀʙʟᴇᴅ"
+        f"▸ ᴀᴜᴛᴏ-sᴛᴀᴛᴜs: ᴇɴᴀʙʟᴇᴅ\n\n"
+        f"── sᴇssɪᴏɴ sᴛʀɪɴɢ ──\n"
+        f"▸ sᴀᴠᴇ ᴛᴏ ʀᴀɪʟᴡᴀʏ → ᴠᴀʀɪᴀʙʟᴇs:\n"
+        f"ɴᴀᴍᴇ: SESSION_STRING\n"
+        f"ᴠᴀʟᴜᴇ:\n`{session_str}`"
     )
     asyncio.create_task(_userbot_client.run_until_disconnected())
     logger.info("✅ Юзербот запущен через бота!")
@@ -3376,12 +3385,18 @@ async def _run_ptb():
 async def _try_autostart_userbot():
     """Если сессия уже есть — запускаем юзербот сразу без логина и без терминала."""
     global _userbot_client, next_task_id, auto_spam_tasks
-    session_path = SESSION_FILE + ".session"
-    if not os.path.exists(session_path):
-        logger.info("Сессии нет. Напиши боту /login чтобы войти.")
-        return
+    # Railway: используем StringSession из переменной среды
+    if SESSION_STRING:
+        session = StringSession(SESSION_STRING)
+        logger.info("✅ Используем StringSession из переменной среды")
+    else:
+        session_path = SESSION_FILE + ".session"
+        if not os.path.exists(session_path):
+            logger.info("Сессии нет. Напиши боту /login чтобы войти.")
+            return
+        session = SESSION_FILE
     try:
-        _userbot_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+        _userbot_client = TelegramClient(session, API_ID, API_HASH)
         await _userbot_client.connect()  # просто подключаемся, не логинимся
 
         if not await _userbot_client.is_user_authorized():
