@@ -1,5 +1,5 @@
-# GHOST BOT v20.2 — ЧАСТЬ 1 из 2 (строки 1-2193)
-# Склеить: скопируй part1, под ним part2, удали эти строки
+# GHOST BOT v20.2 — ЧАСТЬ 1 из 2 (строки 1-2321)
+# Склеить: part1 + part2, удали строки с #
 
 import asyncio
 import os
@@ -1337,24 +1337,24 @@ async def text_to_pdf(text):
 # ФУНКЦИЯ РАСПОЗНАВАНИЯ ФОТО И СТИКЕРОВ (ДЛЯ AI)
 # ============================================
 async def analyze_media(event):
-    """Анализирует фото или стикер и возвращает описание"""
-    try:
-        if event.photo:
-            # Скачиваем фото
-            photo_bytes = await event.download_media(bytes)
-            
-            # Используем Gemini Vision для описания
-            import base64
-            
-            # Правильный формат для Gemini API - список из двух элементов
+    """Анализирует фото или стикер через Gemini Vision"""
+    import base64
+
+    async def _gemini_vision(img_bytes, mime, prompt):
+        """Отправляет картинку в Gemini и возвращает описание"""
+        if not gemini_client:
+            return None
+        try:
+            from google.genai import types as genai_types
             contents = [
-                "Опиши что на этом фото. Какое настроение? Что хотел передать человек? Ответ дай кратко, 1-2 предложения.",
-                {
-                    "mime_type": "image/jpeg",
-                    "data": base64.b64encode(photo_bytes).decode('utf-8')
-                }
+                genai_types.Content(parts=[
+                    genai_types.Part(text=prompt),
+                    genai_types.Part(inline_data=genai_types.Blob(
+                        mime_type=mime,
+                        data=img_bytes
+                    ))
+                ])
             ]
-            
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     gemini_client.models.generate_content,
@@ -1363,29 +1363,50 @@ async def analyze_media(event):
                 ),
                 timeout=15
             )
-            return response.text
-            
+            return response.text.strip() if response.text else None
+        except Exception as e:
+            logger.error(f"❌ Gemini Vision ошибка: {e}")
+            return None
+
+    try:
+        if event.photo:
+            photo_bytes = await event.download_media(bytes)
+            result = await _gemini_vision(
+                photo_bytes,
+                "image/jpeg",
+                "Опиши что на этом фото коротко (1-2 предложения). Какое настроение? Что хотел передать человек?"
+            )
+            return result or "Фото (не удалось распознать)"
+
         elif event.sticker:
-            # Для стикеров - проверяем наличие emoji
+            # Скачиваем стикер как картинку и анализируем через Gemini
+            try:
+                sticker_bytes = await event.download_media(bytes)
+                if sticker_bytes:
+                    # Стикеры в TG бывают webp или tgs (анимированные)
+                    # webp можно отправить как image/webp
+                    result = await _gemini_vision(
+                        sticker_bytes,
+                        "image/webp",
+                        "Это стикер из Telegram. Опиши что на нём изображено и какую эмоцию/настроение он передаёт. Кратко, 1 предложение."
+                    )
+                    if result:
+                        return f"Стикер: {result}"
+            except Exception as e:
+                logger.warning(f"⚠️ Не смог скачать стикер: {e}")
+
+            # Фолбек — хотя бы эмодзи
             emoji = "😶"
             try:
                 if event.sticker.emoji:
                     emoji = event.sticker.emoji
             except:
                 pass
-                
-            set_name = "неизвестного набора"
-            try:
-                if hasattr(event.sticker, 'set') and event.sticker.set:
-                    set_name = str(event.sticker.set)
-            except:
-                pass
-            
-            return f"Стикер с эмоцией {emoji} из набора {set_name}"
-        
+            return f"Стикер {emoji}"
+
         return None
     except asyncio.TimeoutError:
-        logger.error(f"❌ Таймаут анализа медиа")
+        logger.error("❌ Таймаут анализа медиа")
         return None
     except Exception as e:
         logger.error(f"❌ Ошибка анализа медиа: {e}")
@@ -1875,6 +1896,10 @@ async def ai_handler(event):
         contact_info = " (кент из Казахстана)"
     elif sender_username == 'newbalancedd' or sender_username == '@newbalancedd' or sender_phone == '+380660073828' or sender_phone == '380660073828':
         contact_info = " (друг Рома, одноклассник)"
+    elif sender_username == 'Rubinn1' or sender_username == '@Rubinn1':
+        contact_info = " (интернет-друг Рубин, купил скрипт)"
+    elif sender_username == 'd83801d' or sender_username == '@d83801d':
+        contact_info = " (одноклассник Давид)"
     
     logger.info(f"🤖 AI получил от {sender_name}{contact_info}: {user_message[:50]}...")
     
@@ -1929,9 +1954,29 @@ async def process_ai_queue(client, chat_id):
     try:
         async with client.action(chat, 'typing'):
             
+            is_new_dialog = chat_id not in ai_brain or len(ai_brain.get(chat_id, [])) == 0
             if chat_id not in ai_brain:
                 ai_brain[chat_id] = []
-            
+
+            # Приветствие в начале нового диалога
+            if is_new_dialog:
+                greeting = (
+                    "── ᴀɪ ᴀɢᴇɴᴛ // @mo1chu ──\n"
+                    "\n"
+                    "▸ ᴠʏ ᴏʙsʜᴄʜᴀᴇᴛᴇs ᴄ AI-ᴀɢᴇɴᴛᴏᴍ ɪʟʏɪ\n"
+                    "▸ ɪʟʏᴀ sᴇᴊᴄʜᴀs ɴᴇ ᴅᴏsᴛᴜᴘᴇɴ — ᴏᴛᴠᴇᴄʜᴀᴇᴛ AI\n"
+                    "\n"
+                    "⌬ ᴜᴄʜᴛɪᴛᴇ:\n"
+                    "◈ AI ᴍᴏᴢʜᴇᴛ ᴏsʜɪʙᴀᴛsᴀ ɪ ɢᴏᴠᴏʀɪᴛ ɴᴇ ᴛᴏᴄʜɴᴜᴊᴜ ɪɴғᴜ\n"
+                    "◈ ᴘᴇʀsᴏɴᴀʟɴᴏᴇ ʟᴜᴄʜsʜᴇ sᴘʀᴏsɪᴛ ᴜ ɪʟʏɪ ɴᴀᴘʀᴀᴍᴜᴊᴜ\n"
+                    "◈ ᴠᴀᴢʜɴᴏᴇ — sᴏᴏʙsʜᴄʜᴇɴɪᴊᴀ ɪʟʏᴀ ᴜᴠɪᴅɪᴛ ᴘᴏᴢᴢʜᴇ\n"
+                    "◈ AI ᴢɴᴀᴇᴛ ʀᴀsᴘɪsᴀɴɪᴇ ɪ ᴍᴏᴢʜᴇᴛ ᴘᴇʀᴇᴅᴀᴛ ɪɴғᴜ\n"
+                    "\n"
+                    "── ᴊᴀ sʟᴜsʜᴀᴊᴜ ──"
+                )
+                await client.send_message(chat, greeting)
+                await asyncio.sleep(1)
+
             combined_text = ""
             last_contact = None
             contact_type = None
@@ -1955,6 +2000,10 @@ async def process_ai_queue(client, chat_id):
                         contact_type = "kent"
                     elif "(друг Рома, одноклассник)" in msg['contact_info']:
                         contact_type = "roma"
+                    elif "(интернет-друг Рубин" in msg['contact_info']:
+                        contact_type = "rubin"
+                    elif "(одноклассник Давид)" in msg['contact_info']:
+                        contact_type = "david"
                     elif "учитель" in msg['contact_info']:
                         contact_type = "teacher"
                         # Проверяем расписание для учителей
@@ -1995,6 +2044,10 @@ async def process_ai_queue(client, chat_id):
                 system_prompt += "\n\nСейчас ты общаешься с крёстной сестрой. Общайся тепло, по-родственному."
             elif contact_type == "friend":
                 system_prompt += "\n\nСейчас ты общаешься с другом. Общайся попроще, без заморочек."
+            elif contact_type == "rubin":
+                system_prompt += "\n\n❗ Сейчас ты общаешься с РУБИНОМ (@Rubinn1)! Это интернет-друг Ильи, купил у него скрипт. Общайся дружелюбно, по-пацански, как с другом."
+            elif contact_type == "david":
+                system_prompt += "\n\nСейчас ты общаешься с ДАВИДОМ (@d83801d) — одноклассником Ильи. Общайся нормально, можно иногда пошутить."
             
             history = [f"Система: {system_prompt}"]
             for msg in ai_brain[chat_id][-15:]:
@@ -2043,7 +2096,7 @@ async def process_ai_queue(client, chat_id):
 
             # Иногда отправляем стикер после ответа (только друзьям, не учителям)
             import random
-            if contact_type in ("arina", "kent", "roma", "friend") and sticker_pack and random.random() < 0.25:
+            if contact_type in ("arina", "kent", "roma", "friend", "rubin", "david") and sticker_pack and random.random() < 0.25:
                 try:
                     sticker_data = random.choice(sticker_pack)
                     sticker_msg = await client.get_messages(sticker_data['chat_id'], ids=sticker_data['id'])
@@ -2194,8 +2247,6 @@ async def auto_spam_handler(event):
 async def suefa_game_handler(event):
     global suefa_games
     
-# GHOST BOT v20.2 — ЧАСТЬ 2 из 2 (строки 2194-конец)
-
     chat_id = event.chat_id
     user_id = event.sender_id
     text = event.raw_text.lower().strip()
@@ -2270,6 +2321,8 @@ async def suefa_game_handler(event):
                 f"{result}"
             )
             del suefa_games[chat_id]
+
+# GHOST BOT v20.2 — ЧАСТЬ 2 из 2 (строки 2322-конец)
 
 # ============================================
 # ОБРАБОТЧИК КОМАНД (ОСНОВНОЙ)
@@ -3503,9 +3556,8 @@ async def _run_ptb():
     logger.info("✅ PTB бот запущен, жди команды /login или /start")
 
 async def _try_autostart_userbot():
-    """Если сессия уже есть — запускаем юзербот сразу без логина и без терминала."""
+    """Если сессия уже есть — запускаем юзербот сразу без логина."""
     global _userbot_client, next_task_id, auto_spam_tasks
-    # Railway: используем StringSession из переменной среды
     if SESSION_STRING:
         session = StringSession(SESSION_STRING)
         logger.info("✅ Используем StringSession из переменной среды")
@@ -3517,7 +3569,7 @@ async def _try_autostart_userbot():
         session = SESSION_FILE
     try:
         _userbot_client = TelegramClient(session, API_ID, API_HASH)
-        await _userbot_client.connect()  # просто подключаемся, не логинимся
+        await _userbot_client.connect()
 
         if not await _userbot_client.is_user_authorized():
             logger.info("Сессия есть но не авторизован. Напиши боту /login.")
