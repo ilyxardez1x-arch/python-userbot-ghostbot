@@ -109,7 +109,7 @@ SESSION_STRING = os.environ.get("SESSION_STRING", "")
 # ============================================
 STATUS_BOT_TOKEN = os.environ.get("STATUS_BOT_TOKEN", "")
 STATUS_CHANNEL_ID = "@GRANDMOBAIR"
-STATUS_MESSAGE_ID = 9
+STATUS_MESSAGE_ID = 10
 STATUS_ACTIVE_START = 7    # с 07:00
 STATUS_ACTIVE_END   = 23   # до 23:00
 STATUS_OFFLINE_DELAY = 15 * 60  # 15 минут
